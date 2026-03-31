@@ -94,6 +94,8 @@ Install-Package LLamaSharp.Backend.Cpu -Version 0.25.0
 Install-Package DotNetEnv
 ```
 
+---
+
 # Setup
 
 ### 1. Create .env file
@@ -155,4 +157,3 @@ Goodbye!
 - Gemini 3.1 Flash handles both image understanding and image generation in a single model
 - LLamaSharp runs locally - no internet needed for text chat
 - Generated images are saved as PNG with a timestamp filename
-
