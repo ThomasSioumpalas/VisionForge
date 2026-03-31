@@ -1,197 +1,160 @@
-LLaVA + LLamaSharp Image Chat — C# Console App
+ImageReforge
 
-A multimodal AI console application built in C# that:
+A C# console application that analyzes a copyrighted image, generates a copyright-free version of it, and allows follow-up conversation about the result.
 
-1. **Describes images** using LLaVA (vision model)
-2. **Answers follow-up questions** about the image using LLamaSharp (text chat)
+What it does
 
-Supports two backends:
-
-- **Ollama** (recommended) — local HTTP server, easier setup
-- **CLI + LLamaSharp** (fallback) — direct process + in-memory inference
+1. You provide an image path
+2. Gemini 3.1 Flash (via OpenRouter) analyzes the image and extracts a detailed description
+3. The same model generates a new copyright-free image based on that description
+4. The generated image opens automatically in Windows Photos
+5. You can type modifications to regenerate, or ask text questions answered by a local LLM
+6. Type "save" to save the current image to the Outputs/ folder
 
 Architecture
 
-Your C# Console App
-│
-├── LlavaService ← handles image description (vision)
-│ ├── Ollama mode → HTTP POST to localhost:11434 with base64 image
-│ └── CLI mode → spawns llama-llava-cli.exe as child process
-│
-└── ChatService ← handles text conversation (language)
-├── Ollama mode → HTTP POST to localhost:11434/api/chat
-└── LLamaSharp → loads GGUF model directly in memory via llama.cpp
+```
+User provides image path
+        |
+OpenRouterService (HTTP)
+        |-- AnalyzeImageAsync  --> Gemini 3.1 Flash reads image, returns ANALYSIS + PROMPT
+        |-- GenerateImageAsync --> Gemini 3.1 Flash generates new image from PROMPT
+        |
+ImageService
+        |-- SaveImageAsync     --> saves .png to Outputs/ folder
+        |-- OpenImage          --> opens image in Windows default photo viewer
+        |
+ChatService (LLamaSharp)
+        |-- ChatAsync          --> answers follow-up text questions using local GGUF model
+```
 
 Tech Stack
 
-| Component              | What it is                       | Used for                       |
-| ---------------------- | -------------------------------- | ------------------------------ |
-| **C#/.NET 9**          | Application language             | App logic, UI, HTTP calls      |
-| **LLamaSharp 0.25.0**  | C# wrapper for llama.cpp         | In-process text inference      |
-| **llama.cpp b3621**    | C++ inference engine             | CLI binary for LLaVA vision    |
-| **LLaVA v1.6**         | Multimodal vision-language model | Image description              |
-| **GGUF**               | Model file format                | Stores quantized model weights |
-| **Ollama**             | Local model runtime/server       | Optional HTTP backend          |
-| **System.Diagnostics** | Built-in .NET                    | Spawning CLI child process     |
-| **System.Text.Json**   | Built-in .NET                    | Parsing Ollama HTTP responses  |
+| Component                              | What it is               | Used for                             |
+| -------------------------------------- | ------------------------ | ------------------------------------ |
+| C# / .NET 9                            | Application language     | App logic, HTTP calls, file handling |
+| OpenRouter API                         | Cloud AI gateway         | Routes requests to Gemini 3.1 Flash  |
+| Gemini 3.1 Flash (Nano Banana 2)       | Google multimodal model  | Image analysis + image generation    |
+| LLamaSharp 0.25.0                      | C# wrapper for llama.cpp | Local text chat                      |
+| llama.cpp (via LLamaSharp.Backend.Cpu) | C++ inference engine     | Runs GGUF model in memory            |
+| DotNetEnv                              | NuGet package            | Reads API key from .env file         |
+| System.Net.Http                        | Built-in .NET            | HTTP requests to OpenRouter          |
+| System.Diagnostics                     | Built-in .NET            | Opens image in Windows Photos        |
+
+Project Structure
+
+```
+ImageReforge/
+├── .env                      <- API key (never commit this)
+├── .gitignore
+├── Program.cs                <- entry point and main loop
+├── Services/
+│   ├── OpenRouterService.cs  <- Gemini image analysis + generation via OpenRouter
+│   ├── ImageService.cs       <- saves and opens generated images
+│   └── ChatService.cs        <- local text chat via LLamaSharp
+├── Inputs/                   <- put your source images here
+└── Outputs/                  <- generated images are saved here
+```
 
 Requirements
 
-Runtime
-
-- [.NET 8 or 9](https://dotnet.microsoft.com/download)
+- .NET 9 SDK
 - Visual Studio 2022
+- An OpenRouter account with credits
+- A local GGUF model file for text chat (LLamaSharp)
 
-NuGet Packages
-Install via Package Manager Console:
+Downloads
+
+### 1. OpenRouter API Key
+
+1. Go to https://openrouter.ai
+2. Sign up and go to Settings > Keys
+3. Create a new key
+4. Add credits at https://openrouter.ai/settings/credits (minimum $5 recommended)
+
+### 2. Local GGUF model (for text chat via LLamaSharp)
+
+Go to:
+
+```
+https://huggingface.co/cjpais/llava-1.6-mistral-7b-gguf
+```
+
+Download: llava-v1.6-mistral-7b.Q4_K_M.gguf (~4.37 GB)
+
+Place it anywhere on your machine and update the path in Program.cs.
+
+### 3. NuGet packages
+
+In Visual Studio Package Manager Console:
 
 ```powershell
 Install-Package LLamaSharp -Version 0.25.0
 Install-Package LLamaSharp.Backend.Cpu -Version 0.25.0
+Install-Package DotNetEnv
 ```
 
-Downloads
+---
 
-Option A: Ollama Backend (recommended)
+Setup
 
-**1. Install Ollama**
+### 1. Create .env file
 
-```powershell
-winget install Ollama.Ollama
-```
-
-**2. Pull the LLaVA model**
-
-```powershell
-ollama pull llava
-```
-
-Option B: CLI + LLamaSharp Backend (fallback)
-
-You need to download three things manually:
-
-**1. llama.cpp CLI binaries (build b3621)**
-
-Go to:
+Create a file named .env in the project root (same folder as Program.cs):
 
 ```
-https://github.com/ggerganov/llama.cpp/releases/tag/b3621
+OPENROUTER_API_KEY=sk-or-v1-yourfullkeyhere
 ```
 
-Download: `llama-b3621-bin-win-avx2-x64.zip`
+In Solution Explorer, right-click .env > Properties:
 
-> ⚠️ Use b3621 specifically — newer builds dropped LLaVA v1.5 support.
-> Use avx2 if your CPU supports AVX2 (most modern CPUs do).
+- Build Action: None
+- Copy to Output Directory: Copy if newer
 
-Extract to: `C:\Users\<you>\Downloads\llama-b3621-bin-win-avx2-x64\`
-
-**2. LLaVA main model (GGUF)**
-
-Go to:
-
-```
-https://huggingface.co/cjpais/llava-1.6-mistral-7b-gguf
-```
-
-Download: `llava-v1.6-mistral-7b.Q4_K_M.gguf` (~4.37 GB)
-
-> Q4_K_M = good quality/size balance. Q5_K_M is higher quality but larger.
-
-**3. Vision encoder / mmproj (GGUF)**
-
-From the same repo:
-
-```
-https://huggingface.co/cjpais/llava-1.6-mistral-7b-gguf
-```
-
-Download: `mmproj-model-f16.gguf` (~624 MB)
-
-> ⚠️ The main model and mmproj MUST come from the same repo.
-> Mixing files from different repos causes an `n_embd mismatch` error.
-
-Configuration
-
-Open `Program.cs` and set your backend at the top:
+### 2. Update paths in Program.cs
 
 ```csharp
-// true  = Ollama (needs ollama serve running)
-// false = CLI + LLamaSharp (needs GGUF files downloaded)
-const bool USE_OLLAMA = false;
+// Path to your local GGUF model for text chat
+string modelPath = @"C:\path\to\llava-v1.6-mistral-7b.Q4_K_M.gguf";
 
-// Ollama settings (only used when USE_OLLAMA = true)
-const string OLLAMA_URL = "http://localhost:11434";
-const string OLLAMA_MODEL = "llava";
-
-// CLI / LLamaSharp settings (only used when USE_OLLAMA = false)
-const string CLI_PATH   = @"C:\Users\thomas\Downloads\llama-b3621-bin-win-avx2-x64\llama-llava-cli.exe";
-const string MODEL_PATH = @"C:\Users\thomas\Downloads\llava-v1.6-mistral-7b.Q4_K_M.gguf";
-const string MMPROJ_PATH = @"C:\Users\thomas\Downloads\mmproj-model-f16.gguf";
+// Path to your Outputs folder inside the project
+string outputFolder = @"C:\path\to\your\project\Outputs";
 ```
 
-Running the App
+Running the app
 
-If using Ollama (`USE_OLLAMA = true`)
-
-**1. Start Ollama server** (keep this PowerShell window open):
-
-```powershell
-ollama serve
-```
-
-> If you get `bind: Only one usage of each socket address` — Ollama is already running. Skip this step.
-
-**2. Verify Ollama is running** — open browser and go to:
+Press F5 in Visual Studio.
 
 ```
-http://localhost:11434
-```
+=== Copyright-Free Image Generator ===
 
-You should see: `Ollama is running`
-
-**3. Run the project** in Visual Studio — press **F5**
-
-If using CLI + LLamaSharp (`USE_OLLAMA = false`)
-
-Just press **F5** in Visual Studio — no server needed.
-
-Usage
-
-```
-=== LLaVA + LLaMA Chat ===
-Backend: CLI + LLamaSharp
-
-Image path (or press Enter to skip): C:\Users\thomas\Pictures\dogs.jpg
+Enter path to your image: C:\Users\thomas\Pictures\example.jpg
 
 Analyzing image...
 
-Image Description:
-The image features a diverse group of dogs sitting and standing
-together in a grassy field...
+Extracted Prompt:
+A photorealistic scene of a mountain landscape at sunset...
 
-Image loaded! Ask questions about it.
-Type your message or 'exit' to quit.
+Generating copyright-free image...
 
-You: what breeds are in the image?
-AI: Based on the description, I can identify...
+Image saved to: C:\...\Outputs\generated_20260331_142301.png
+
+Type changes to regenerate (e.g. 'make it warmer colors')
+Type 'save' to keep current image, 'exit' to quit
+
+You: make the sky more dramatic
+Regenerating...
+
+You: save
+Saved to: C:\...\Outputs\generated_20260331_142415.png
 
 You: exit
 Goodbye!
 ```
 
-Project Structure
+## Notes
 
-```
-c#llamaproject/
-├── Program.cs              ← entry point, backend config, main loop
-├── Services/
-│   ├── LlavaService.cs     ← image description (Ollama HTTP or CLI process)
-│   └── ChatService.cs      ← text chat (Ollama HTTP or LLamaSharp in-memory)
-└── Inputs/                 ← put your test images here
-```
-
-Notes
-
-- LLaVA **describes** images — it cannot **generate** images. For image generation you'd need Stable Diffusion.
-- LLamaSharp handles text chat only — it never sees the actual image pixels, only the text description produced by LLaVA.
-- Inference on CPU is slow (~3-4 tokens/second for a 7B model). GPU acceleration requires CUDA drivers and `LLamaSharp.Backend.Cuda12`.
+- Gemini 3.1 Flash handles both image understanding and image generation in a single model
+- LLamaSharp runs locally - no internet needed for text chat
+- Generated images are saved as PNG with a timestamp filename
+- The .env file must never be committed to Git - it contains your API key
