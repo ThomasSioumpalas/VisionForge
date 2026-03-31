@@ -2,7 +2,7 @@ ImageReforge
 
 A C# console application that analyzes a copyrighted image, generates a copyright-free version of it, and allows follow-up conversation about the result.
 
-What it does
+# What it does
 
 1. You provide an image path
 2. Gemini 3.1 Flash (via OpenRouter) analyzes the image and extracts a detailed description
@@ -11,7 +11,7 @@ What it does
 5. You can type modifications to regenerate, or ask text questions answered by a local LLM
 6. Type "save" to save the current image to the Outputs/ folder
 
-Architecture
+# Architecture
 
 ```
 User provides image path
@@ -28,7 +28,7 @@ ChatService (LLamaSharp)
         |-- ChatAsync          --> answers follow-up text questions using local GGUF model
 ```
 
-Tech Stack
+# Tech Stack
 
 | Component                              | What it is               | Used for                             |
 | -------------------------------------- | ------------------------ | ------------------------------------ |
@@ -41,7 +41,7 @@ Tech Stack
 | System.Net.Http                        | Built-in .NET            | HTTP requests to OpenRouter          |
 | System.Diagnostics                     | Built-in .NET            | Opens image in Windows Photos        |
 
-Project Structure
+# Project Structure
 
 ```
 ImageReforge/
@@ -56,14 +56,14 @@ ImageReforge/
 └── Outputs/                  <- generated images are saved here
 ```
 
-Requirements
+# Requirements
 
 - .NET 9 SDK
 - Visual Studio 2022
 - An OpenRouter account with credits
 - A local GGUF model file for text chat (LLamaSharp)
 
-Downloads
+# Downloads
 
 ### 1. OpenRouter API Key
 
@@ -94,9 +94,7 @@ Install-Package LLamaSharp.Backend.Cpu -Version 0.25.0
 Install-Package DotNetEnv
 ```
 
----
-
-Setup
+# Setup
 
 ### 1. Create .env file
 
@@ -121,7 +119,7 @@ string modelPath = @"C:\path\to\llava-v1.6-mistral-7b.Q4_K_M.gguf";
 string outputFolder = @"C:\path\to\your\project\Outputs";
 ```
 
-Running the app
+# Running the app
 
 Press F5 in Visual Studio.
 
@@ -157,4 +155,4 @@ Goodbye!
 - Gemini 3.1 Flash handles both image understanding and image generation in a single model
 - LLamaSharp runs locally - no internet needed for text chat
 - Generated images are saved as PNG with a timestamp filename
-- The .env file must never be committed to Git - it contains your API key
+
